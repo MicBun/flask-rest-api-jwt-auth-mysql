@@ -1,5 +1,3 @@
-from dotenv import dotenv_values
-
 import app
 
 db = app.db
@@ -34,6 +32,7 @@ class User(db.Model):
             "postal": self.postal,
             "password": self.password
         }
+
 
 class Product(db.Model):
     __tablename__ = 'products'

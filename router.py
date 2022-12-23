@@ -1,17 +1,11 @@
 import datetime
-import json
-from datetime import timedelta
-
 import jwt
-from fastapi_jwt_auth import AuthJWT
+from datetime import timedelta
 from flask import request, jsonify, redirect
 from flask_jwt_extended import create_access_token, jwt_required
-from app import db, app, database_space, rest_app, user_space, product_space, order_space
+from app import db, app, database_space, user_space, product_space, order_space
 from models import User, Product, Order
-from flask_restx import Api, swagger, Resource
-
-
-# api = Api(app)
+from flask_restx import Resource
 
 
 @app.route('/swagger')
@@ -81,7 +75,7 @@ class ResetDatabase(Resource):
         return {"message": "Database reset"}, 200
 
 
-@user_space.route("/users")
+@user_space.route("/users/all")
 class Users(Resource):
     @user_space.header("Authorization", "JWT Token", required=True)
     @user_space.doc(
@@ -102,7 +96,7 @@ class Users(Resource):
         return jsonify([e.to_dict() for e in users])
 
 
-@user_space.route("/users/<int:user_id>")
+@user_space.route("/users/get/<int:user_id>")
 class UserById(Resource):
     @user_space.header("Authorization" "JWT Token", required=True)
     @user_space.doc(
@@ -128,28 +122,33 @@ class Login(Resource):
         summary="Login",
         description="This endpoint returns a JWT token to be used for authentication.",
         params={
-            'username': {
-                'in': 'query',
+            'body': {
+                'in': 'body',
                 'description':
-                    'Input your username'
-            },
-            'password': {
-                'in': 'query',
-                'description':
-                    'Input your password'
-            }})
+                    'Input your id and password',
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'id': {
+                            'type': 'integer'
+                        },
+                        'password': {
+                            'type': 'string'
+                        }
+                    },
+                    'required': ['id', 'password']
+                }}})
     def post(self):
         """Login to the system and get a JWT token (valid for 1 hour) to access the other endpoints"""
         data = request.get_json()
-        user = User.query.filter_by(id=data["id"]).first()
         if data["id"] == 0 and data["password"] == "admin":
             payload = {
                 "user_id": 0,
                 "exp": datetime.datetime.utcnow() + datetime.timedelta(days=1)
             }
             access_token = create_access_token(identity=payload, expires_delta=timedelta(days=1), fresh=True)
-            # access_token_str = str(access_token)
             return {"access_token": access_token}, 200
+        user = User.query.filter_by(id=data["id"]).first()
         if user and user.password == data["password"]:
             payload = {
                 "user_id": user.id,
@@ -163,27 +162,36 @@ class Login(Resource):
 @user_space.route("/register")
 class Register(Resource):
     @user_space.doc(
+        summary="Register",
+        description="This endpoint allows you to register a new user.",
         params={
-            'username': {
+            'body': {
                 'in': 'body',
                 'description':
-                    'Input your username'
-            },
-            'password': {
-                'in': 'body',
-                'description':
-                    'Input your password'
-            },
-            'email': {
-                'in': 'body',
-                'description':
-                    'Input your email'
-            },
-            'phone': {
-                'in': 'body',
-                'description':
-                    'Input your phone'
-            }})
+                    'Input your name, city, state, postal code and password. The id will be automatically generated. '
+                    'The id will be used to login. The password is optional and will be set to "password" if not '
+                    'provided.',
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {
+                            'type': 'string'
+                        },
+                        'city': {
+                            'type': 'string'
+                        },
+                        'state': {
+                            'type': 'string'
+                        },
+                        'postal': {
+                            'type': 'string'
+                        },
+                        'password': {
+                            'type': 'string'
+                        }
+                    },
+                    'required': ['name', 'city', 'state', 'postal']
+                }}})
     def post(self):
         """Register a new user"""
         data = request.get_json()
@@ -202,7 +210,7 @@ class Register(Resource):
         return {"message": "success", "user": user.to_dict()}, 200
 
 
-@user_space.route("/users/edit")
+@user_space.route("/users/update")
 class EditUser(Resource):
     @user_space.header("Authorization", "JWT Token", required=True)
     @user_space.doc(
@@ -212,28 +220,32 @@ class EditUser(Resource):
                 'description':
                     'Input your JWT token by adding "Bearer " then your token'
             },
-            'username': {
+            'body': {
                 'in': 'body',
                 'description':
-                    'Input your username'
-            },
-            'password': {
-                'in': 'body',
-                'description':
-                    'Input your password'
-            },
-            'email': {
-                'in': 'body',
-                'description':
-                    'Input your email'
-            },
-            'phone': {
-                'in': 'body',
-                'description':
-                    'Input your phone'
-            }})
+                    'Input your name, city, state, postal and password. Only the fields you want to update are '
+                    'required.',
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {
+                            'type': 'string'
+                        },
+                        'city': {
+                            'type': 'string'
+                        },
+                        'state': {
+                            'type': 'string'
+                        },
+                        'postal': {
+                            'type': 'string'
+                        },
+                        'password': {
+                            'type': 'string'
+                        }
+                    }}}})
     @jwt_required()
-    def post(self):
+    def put(self):
         """Edit a user (user only)"""
         if is_admin():
             return {"message": "Only users can edit their own profile"}, 401
@@ -258,7 +270,30 @@ class EditUser(Resource):
         return {"message": "user not found"}, 404
 
 
-@product_space.route("/products")
+@user_space.route("/users/delete/<int:user_id>")
+class DeleteUser(Resource):
+    @user_space.header("Authorization", "JWT Token", required=True)
+    @user_space.doc(
+        params={
+            'Authorization': {
+                'in': 'header',
+                'description':
+                    'Input your JWT token by adding "Bearer " then your token'
+            }})
+    @jwt_required()
+    def delete(self, user_id):
+        """Delete a user (admin only)"""
+        if not is_admin():
+            return {"message": "Unauthorized"}, 401
+        user = User.query.filter_by(id=user_id).first()
+        if user:
+            db.session.delete(user)
+            db.session.commit()
+            return {"message": "success"}, 200
+        return {"message": "user not found"}, 404
+
+
+@product_space.route("/products/all")
 class Products(Resource):
     def get(self):
         """Get all products in the database"""
@@ -282,15 +317,15 @@ class SearchProducts(Resource):
         return jsonify([e.to_dict() for e in products])
 
 
-@product_space.route("/products/<int:id>")
+@product_space.route("/products/get/<int:id>")
 class ProductById(Resource):
-    def get(self,id):
+    def get(self, id):
         """Get a product by id"""
         product = Product.query.filter_by(id=id).first()
         return jsonify(product.to_dict())
 
 
-@product_space.route("/products")
+@product_space.route("/products/add")
 class AddProduct(Resource):
     @product_space.header("Authorization", "JWT Token", required=True)
     @product_space.doc(
@@ -300,36 +335,25 @@ class AddProduct(Resource):
                 'description':
                     'Input your JWT token by adding "Bearer " then your token'
             },
-            'name': {
+            'body': {
                 'in': 'body',
                 'description':
-                    'Input your name'
-            },
-            'category': {
-                'in': 'body',
-                'description':
-                    'Input your category'
-            },
-            'sub_category': {
-                'in': 'body',
-                'description':
-                    'Input your sub_category'
-            },
-            'price': {
-                'in': 'body',
-                'description':
-                    'Input your price'
-            },
-            'description': {
-                'in': 'body',
-                'description':
-                    'Input your description'
-            },
-            'image': {
-                'in': 'body',
-                'description':
-                    'Input your image'
-            }})
+                    'Input your product name, category, sub_category',
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {
+                            'type': 'string'
+                        },
+                        'category': {
+                            'type': 'string'
+                        },
+                        'sub_category': {
+                            'type': 'string'
+                        }
+                    },
+                    'required': ['name', 'category', 'sub_category']
+                }}})
     @jwt_required()
     def post(self):
         """Add a new product (admin only)"""
@@ -349,7 +373,7 @@ class AddProduct(Resource):
         return {"message": "success", "product": product.to_dict()}, 200
 
 
-@product_space.route("/products/<int:id>")
+@product_space.route("/products/edit/<int:id>")
 class EditProduct(Resource):
     @product_space.header("Authorization", "JWT Token", required=True)
     @product_space.doc(
@@ -359,38 +383,26 @@ class EditProduct(Resource):
                 'description':
                     'Input your JWT token by adding "Bearer " then your token'
             },
-            'name': {
+            'body': {
                 'in': 'body',
                 'description':
-                    'Input your name'
-            },
-            'category': {
-                'in': 'body',
-                'description':
-                    'Input your category'
-            },
-            'sub_category': {
-                'in': 'body',
-                'description':
-                    'Input your sub_category'
-            },
-            'price': {
-                'in': 'body',
-                'description':
-                    'Input your price'
-            },
-            'description': {
-                'in': 'body',
-                'description':
-                    'Input your description'
-            },
-            'image': {
-                'in': 'body',
-                'description':
-                    'Input your image'
-            }})
+                    'Input your product name, category, sub_category. Only the fields you want to update are '
+                    'required.',
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {
+                            'type': 'string'
+                        },
+                        'category': {
+                            'type': 'string'
+                        },
+                        'sub_category': {
+                            'type': 'string'
+                        }
+                    }}}})
     @jwt_required()
-    def put(self,id):
+    def put(self, id):
         """Edit a product (admin only)"""
         if not is_admin():
             return jsonify({"message": "Not authorized"})
@@ -419,7 +431,7 @@ class DeleteProduct(Resource):
                     'Input your JWT token by adding "Bearer " then your token'
             }})
     @jwt_required()
-    def delete(self,id):
+    def delete(self, id):
         """Delete a product (admin only)"""
         if not is_admin():
             return jsonify({"message": "Not authorized"})
@@ -431,7 +443,7 @@ class DeleteProduct(Resource):
         return {"message": "success"}, 200
 
 
-@order_space.route("/orders")
+@order_space.route("/orders/all")
 class Orders(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
@@ -452,7 +464,7 @@ class Orders(Resource):
         return jsonify([e.to_dict() for e in orders])
 
 
-@order_space.route("/orders/<int:id>")
+@order_space.route("/orders/get/<int:id>")
 class OrderById(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
@@ -463,7 +475,7 @@ class OrderById(Resource):
                     'Input your JWT token by adding "Bearer " then your token'
             }})
     @jwt_required()
-    def get(self,id):
+    def get(self, id):
         """Get order by id"""
         if is_admin():
             order = Order.query.filter_by(id=id).first()
@@ -475,7 +487,7 @@ class OrderById(Resource):
         return jsonify(order.to_dict())
 
 
-@order_space.route("/orders")
+@order_space.route("/orders/add")
 class CreateOrder(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
@@ -485,16 +497,22 @@ class CreateOrder(Resource):
                 'description':
                     'Input your JWT token by adding "Bearer " then your token'
             },
-            'product_id': {
+            'body': {
                 'in': 'body',
                 'description':
-                    'Input your product_id'
-            },
-            'quantity': {
-                'in': 'body',
-                'description':
-                    'Input your quantity'
-            }})
+                    'Input your product id, quantity',
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'product_id': {
+                            'type': 'integer'
+                        },
+                        'quantity': {
+                            'type': 'integer'
+                        }
+                    },
+                    'required': ['product_id', 'quantity']
+                }}})
     @jwt_required()
     def post(self):
         """Create an order for a user"""
@@ -510,7 +528,7 @@ class CreateOrder(Resource):
         return {"message": "success", "order": order.to_dict()}, 200
 
 
-@order_space.route("/orders/<int:id>")
+@order_space.route("/orders/edit/<int:id>")
 class EditOrder(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
@@ -520,18 +538,22 @@ class EditOrder(Resource):
                 'description':
                     'Input your JWT token by adding "Bearer " then your token'
             },
-            'product_id': {
+            'body': {
                 'in': 'body',
                 'description':
-                    'Input your product_id'
-            },
-            'quantity': {
-                'in': 'body',
-                'description':
-                    'Input your quantity'
-            }})
+                    'Input the new product id and quantity. Only the fields you want to update are',
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'product_id': {
+                            'type': 'integer'
+                        },
+                        'quantity': {
+                            'type': 'integer'
+                        }
+                    }}}})
     @jwt_required()
-    def put(self,id):
+    def put(self, id):
         """Update order by id for user or admin"""
         if is_admin():
             order = Order.query.filter_by(id=id).first()
@@ -559,7 +581,7 @@ class EditOrder(Resource):
         return {"message": "success", "order": order.to_dict()}, 200
 
 
-@order_space.route("/orders/<int:id>")
+@order_space.route("/orders/delete/<int:id>")
 class DeleteOrder(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
@@ -570,7 +592,7 @@ class DeleteOrder(Resource):
                     'Input your JWT token by adding "Bearer " then your token'
             }})
     @jwt_required()
-    def delete(self,id):
+    def delete(self, id):
         """Delete order by id for user or admin"""
         if is_admin():
             order = Order.query.filter_by(id=id).first()

@@ -2,9 +2,7 @@ from dotenv import dotenv_values
 from flask import Flask
 from flask_jwt_extended import JWTManager
 from flask_restx import Api
-# from flask_restplus import Api
 from flask_sqlalchemy import SQLAlchemy
-
 
 env = dotenv_values(".env")
 
@@ -27,11 +25,6 @@ product_space = rest_app.namespace('Product', description="CRUD Product")
 order_space = rest_app.namespace('Order', description="CRUD Order")
 database_space = rest_app.namespace('Database', description="Database")
 user_space = rest_app.namespace('Users', description="CRUD User")
-# rest_app.add_namespace(user_space)
-# rest_app.add_namespace(product_space)
-# rest_app.add_namespace(order_space)
-# rest_app.add_namespace(database_space)
-# rest_app.add_namespace(main_space)
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 from router import *

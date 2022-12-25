@@ -50,6 +50,7 @@ def reset_db():
     products_csv.readline()
     for line in products_csv:
         line = line.split(";")
+        line[1] = ''.join(e for e in line[1] if e.isalnum() or e == " ")
         line[-1] = line[-1].replace("\n", "")
         product = Product(name=line[1], category=line[2], sub_category=line[3])
         db.session.add(product)
@@ -60,6 +61,8 @@ def reset_db():
 class ResetDatabase(Resource):
     @database_space.header("Authorization", "JWT Token", required=True)
     @database_space.doc(
+        summary="Reset database",
+        description="Reset database to initial state (only for admin)",
         params={
             'Authorization': {
                 'in': 'header',
@@ -75,7 +78,7 @@ class ResetDatabase(Resource):
         return {"message": "Database reset"}, 200
 
 
-@user_space.route("/users/all")
+@user_space.route("/all")
 class Users(Resource):
     @user_space.header("Authorization", "JWT Token", required=True)
     @user_space.doc(
@@ -96,7 +99,7 @@ class Users(Resource):
         return jsonify([e.to_dict() for e in users])
 
 
-@user_space.route("/users/get/<int:user_id>")
+@user_space.route("/get/<int:user_id>")
 class UserById(Resource):
     @user_space.header("Authorization" "JWT Token", required=True)
     @user_space.doc(
@@ -120,7 +123,12 @@ class UserById(Resource):
 class Login(Resource):
     @user_space.doc(
         summary="Login",
-        description="This endpoint returns a JWT token to be used for authentication.",
+        description="This endpoint returns a JWT token to be used for authentication. Login with admin credentials to "
+                    "get admin access. Login with user credentials to get user access. For testing purposes, "
+                    "the admin id and password are 0 and `admin` respectively. You may also use the user id and "
+                    "password from the already existing users in the database. Users that already exist in the "
+                    "database have ids 1 to 409. The password for all of them is `password`. The JWT token is valid "
+                    "for 1 hour.",
         params={
             'body': {
                 'in': 'body',
@@ -210,10 +218,12 @@ class Register(Resource):
         return {"message": "success", "user": user.to_dict()}, 200
 
 
-@user_space.route("/users/update")
+@user_space.route("/update")
 class EditUser(Resource):
     @user_space.header("Authorization", "JWT Token", required=True)
     @user_space.doc(
+        summary="Update a user (user only)",
+        description="This endpoint allows you to update a user. It is restricted to the user itself.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -270,10 +280,12 @@ class EditUser(Resource):
         return {"message": "user not found"}, 404
 
 
-@user_space.route("/users/delete/<int:user_id>")
+@user_space.route("/delete/<int:user_id>")
 class DeleteUser(Resource):
     @user_space.header("Authorization", "JWT Token", required=True)
     @user_space.doc(
+        summary="Delete a user (admin only)",
+        description="This endpoint allows you to delete a user. It is restricted to admins.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -293,16 +305,31 @@ class DeleteUser(Resource):
         return {"message": "user not found"}, 404
 
 
-@product_space.route("/products/all")
+@product_space.route("/all")
 class Products(Resource):
+    @product_space.doc(
+        summary="Get all products",
+        description="This endpoint allows you to get all products."
+    )
     def get(self):
         """Get all products in the database"""
         products = Product.query.all()
         return jsonify([e.to_dict() for e in products])
 
 
-@product_space.route("/products/search/<string:query>")
+@product_space.route("/search/<string:query>")
 class SearchProducts(Resource):
+    @product_space.doc(
+        summary="Search products",
+        description="This endpoint allows you to search products by name. It is not case sensitive. "
+                    "It will return all products that contain the query string. Try searching for "
+                    "'book' to see what I mean.",
+        params={
+            'query': {
+                'in': 'path',
+                'description':
+                    'Input your search query'
+            }})
     def get(self, query):
         """Search for products by name"""
         if not query:
@@ -317,18 +344,24 @@ class SearchProducts(Resource):
         return jsonify([e.to_dict() for e in products])
 
 
-@product_space.route("/products/get/<int:id>")
+@product_space.route("/get/<int:id>")
 class ProductById(Resource):
+    @product_space.doc(
+        summary="Get a product by id",
+        description="This endpoint allows you to get a product by id."
+    )
     def get(self, id):
         """Get a product by id"""
         product = Product.query.filter_by(id=id).first()
         return jsonify(product.to_dict())
 
 
-@product_space.route("/products/add")
+@product_space.route("/add")
 class AddProduct(Resource):
     @product_space.header("Authorization", "JWT Token", required=True)
     @product_space.doc(
+        summary="Add a product (admin only)",
+        description="This endpoint allows you to add a product. It is restricted to admins.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -373,10 +406,12 @@ class AddProduct(Resource):
         return {"message": "success", "product": product.to_dict()}, 200
 
 
-@product_space.route("/products/edit/<int:id>")
+@product_space.route("/edit/<int:id>")
 class EditProduct(Resource):
     @product_space.header("Authorization", "JWT Token", required=True)
     @product_space.doc(
+        summary="Edit a product (admin only)",
+        description="This endpoint allows you to edit a product. It is restricted to admins.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -420,10 +455,12 @@ class EditProduct(Resource):
         return {"message": "success", "product": product.to_dict()}, 200
 
 
-@product_space.route("/products/<int:id>")
+@product_space.route("/<int:id>")
 class DeleteProduct(Resource):
     @product_space.header("Authorization", "JWT Token", required=True)
     @product_space.doc(
+        summary="Delete a product (admin only)",
+        description="This endpoint allows you to delete a product. It is restricted to admins.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -443,10 +480,13 @@ class DeleteProduct(Resource):
         return {"message": "success"}, 200
 
 
-@order_space.route("/orders/all")
+@order_space.route("/all")
 class Orders(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
+        summary="Get all orders (admin only)",
+        description="This endpoint allows you to get all orders. It is restricted to admins. Initially, no orders will "
+                    "be returned so you will need to add some orders first.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -464,10 +504,13 @@ class Orders(Resource):
         return jsonify([e.to_dict() for e in orders])
 
 
-@order_space.route("/orders/get/<int:id>")
+@order_space.route("/get/<int:id>")
 class OrderById(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
+        summary="Get an order by id",
+        description="This endpoint allows you to get an order by id. It is restricted to admins or the user who "
+                    "created the order.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -487,10 +530,12 @@ class OrderById(Resource):
         return jsonify(order.to_dict())
 
 
-@order_space.route("/orders/add")
+@order_space.route("/add")
 class CreateOrder(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
+        summary="Add an order",
+        description="This endpoint allows you to add an order. It is restricted to users.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -516,6 +561,8 @@ class CreateOrder(Resource):
     @jwt_required()
     def post(self):
         """Create an order for a user"""
+        if is_admin():
+            return jsonify({"message": "Not authorized"})
         data = request.get_json()
         user_id = get_user_id_from_token()
         order = Order(
@@ -528,10 +575,13 @@ class CreateOrder(Resource):
         return {"message": "success", "order": order.to_dict()}, 200
 
 
-@order_space.route("/orders/edit/<int:id>")
+@order_space.route("/edit/<int:id>")
 class EditOrder(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
+        summary="Edit an order",
+        description="This endpoint allows you to edit an order. It is restricted to admins or the user who "
+                    "created the order.",
         params={
             'Authorization': {
                 'in': 'header',
@@ -581,10 +631,13 @@ class EditOrder(Resource):
         return {"message": "success", "order": order.to_dict()}, 200
 
 
-@order_space.route("/orders/delete/<int:id>")
+@order_space.route("/delete/<int:id>")
 class DeleteOrder(Resource):
     @order_space.header("Authorization", "JWT Token", required=True)
     @order_space.doc(
+        summary="Delete an order",
+        description="This endpoint allows you to delete an order. It is restricted to admins or the user who "
+                    "created the order.",
         params={
             'Authorization': {
                 'in': 'header',

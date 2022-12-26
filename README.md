@@ -17,7 +17,7 @@ This will install all the necessary libraries and modules, including Flask, SQLA
 
 To run the project, follow these steps:
 
-1. Modify the .env file with the necessary environment variables.\n
+1. Modify the `.env` file with the necessary environment variables.
 2. Run the following command:
 
 ```

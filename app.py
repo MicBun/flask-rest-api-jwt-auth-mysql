@@ -24,7 +24,7 @@ description = (
     'A simple Flask REST API App with JWT Authentication and SQLAlchemy ORM '
     'integration with MySQL database backend and Swagger UI for API documentation and testing purposes. \n'
     'Author: @MicBun (Michael Buntarman)\n'
-    'Github: https://github.com/MicBun \n'
+    'Repository: https://github.com/MicBun/flask-rest-api-jwt-auth-mysql\n'
     'LinkedIn: https://www.linkedin.com/in/micbun'
 )
 rest_app = Api(app=app, version='1.0',

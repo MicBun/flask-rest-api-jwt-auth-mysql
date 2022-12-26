@@ -15,7 +15,10 @@ This will install all the necessary libraries and modules, including Flask, SQLA
 
 ## Running the Project
 
-To run the project, run the following command:
+To run the project, follow these steps:
+
+1. Modify the .env file with the necessary environment variables.\n
+2. Run the following command:
 
 ```
 flask run

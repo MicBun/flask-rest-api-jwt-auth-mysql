@@ -17,10 +17,8 @@ def get_user_id_from_token():
     token = request.headers.get("Authorization")
     if token:
         token = token.split(" ")[1]
-        print(token)
         try:
             payload = jwt.decode(token, app.config["JWT_SECRET_KEY"], algorithms=["HS256"])
-            print(payload)
             user_id = payload["sub"]["user_id"]
             return user_id
         except:
